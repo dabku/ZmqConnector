@@ -110,7 +110,6 @@ class ZeromqConnector:
         Closes socet and terminates the context
         :return: None
         """
-        self.socket.close()
         self.socket = None
         self.context.term()
         self.context = None
