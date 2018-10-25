@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 class ZeromqConnector:
     def __init__(self):
         self.socket = None
+        self.context = zmq.Context()
 
     def initialize_socket(self):
         raise NotImplementedError
@@ -45,13 +46,17 @@ class ZeromqConnector:
 
         :return: message from socket
         """
-        if blocking:
-            return self._recv_zipped_pickle()
-        else:
-            try:
+        try:
+            if blocking:
+                return self._recv_zipped_pickle()
+            else:
                 return self._recv_zipped_pickle(flags=zmq.NOBLOCK)
-            except:
-                raise self.NoMessage
+        except zmq.error.ContextTerminated:
+            raise self.SocketClosed
+        except AttributeError as e:
+            if self.socket is None:
+                raise self.SocketClosed
+            raise e
 
     def send_message_nowait(self, message):
         """
@@ -72,10 +77,13 @@ class ZeromqConnector:
         :param timeout: timeout time in milliseconds
         :return: response from server or None if it failed
         """
-        # initial try + retries
+
         retries_left = retries + 1
         while retries_left:
-            self.send_message_nowait(message)
+            try:
+                self.send_message_nowait(message)
+            except zmq.error.ContextTerminated:
+                raise self.SocketClosed
             socks = dict(self.poll.poll(timeout))
             if socks.get(self.socket) == zmq.POLLIN:
                 reply = self.receive_message()
@@ -84,7 +92,7 @@ class ZeromqConnector:
                 else:
                     return reply
             else:
-                logger.warning("No response from server")
+                logger.debug("No response from server")
                 self.socket.setsockopt(zmq.LINGER, 0)
                 self.socket.close()
                 self.poll.unregister(self.socket)
@@ -93,15 +101,36 @@ class ZeromqConnector:
                 self.initialize_socket()
                 self.poll.register(self.socket, zmq.POLLIN)
                 if retries_left <= 0:
-                    logger.warning('Out of retries, aborting...')
-                    return None
+                    logger.debug('Out of retries, aborting...')
+                    raise self.SendTimeout
         return None
+
+    def close(self):
+        """
+        Closes socet and terminates the context
+        :return: None
+        """
+        self.socket.close()
+        self.socket = None
+        self.context.term()
+        self.context = None
 
     class NoMessage(Exception):
         """
         Exception raised when no message is received in non-blocking mode.
         """
         pass
+
+    class SocketClosed(Exception):
+        """
+        Exception raised whenever socket is terminated and there was an attempt to send or receive
+        """
+        pass
+
+    class SendTimeout(Exception):
+        """
+        Exception raised when sending task run out of retries and timed out
+        """
 
 
 class Server(ZeromqConnector):
@@ -115,7 +144,6 @@ class Server(ZeromqConnector):
         """
         ZeromqConnector.__init__(self)
         self.address = "tcp://*:{}".format(server_port)
-        self.context = zmq.Context()
         self.socket = None
         self.initialize_socket()
 
@@ -150,7 +178,6 @@ class Client(ZeromqConnector):
         """
         ZeromqConnector.__init__(self)
         self.address = "tcp://{}:{}".format(address, server_port)
-        self.context = zmq.Context()
         self.socket = None
         self.initialize_socket()
         self.poll = zmq.Poller()

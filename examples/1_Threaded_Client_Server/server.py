@@ -1,6 +1,6 @@
-# we are adding library root to python path, so you don't have to run anything prior
-# it will allow us to import module
-import os, sys
+import os
+import sys
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 from connector import Server
 import logging
@@ -23,9 +23,9 @@ if __name__ == '__main__':
     while True:
         print('Waiting for message')
         message = server.receive_message()
-        print('Received emssage: {}'.format(message))
+        print('Received message: {}'.format(message))
         if int(message['my_value']) < 5:
-            print('Rreplying...')
+            print('Replying...')
             server.send_message({'response': message['my_value']})
         elif message['my_value'] < 10:
             sleep_time = random.randint(0, 2)

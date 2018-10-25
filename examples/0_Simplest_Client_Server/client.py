@@ -1,12 +1,11 @@
-# we are adding library root to python path, so you don't have to run anything prior
-# it will allow us to import module
-import os, sys
+import os
+import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 from connector import Client
 
-input("\nMake sure server is started for this example and hit enter\n")
+input("\nMake sure that the server is started for this example and hit enter\n")
 
-print('Initializing client on local adresss')
+print('Initializing client on local address')
 client = Client(server_port=5556, address='localhost')
 
 my_message = "This is my message"

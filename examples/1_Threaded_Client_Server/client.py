@@ -1,6 +1,5 @@
-# we are adding library root to python path, so you don't have to run anything prior
-# it will allow us to import module
-import os, sys
+import os
+import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 from connector import Client
@@ -14,8 +13,13 @@ def client_worker(client, q):
     while True:
         msg = q.get()
         print('Sending message and waiting for response')
-        response = client.send_message(msg, retries=1, timeout=3000)
-        print('response: {}'.format(response))
+        try:
+            response = client.send_message(msg, retries=1, timeout=3000)
+            print('response: {}'.format(response))
+        except Client.SendTimeout:
+            print('Timeout we could put message back to queue')
+            #q.put(msg)
+            #continue
         q.task_done()
 
 

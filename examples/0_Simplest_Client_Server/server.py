@@ -1,6 +1,5 @@
-# we are adding library root to python path, so you don't have to run anything prior
-# it will allow us to import module
-import os, sys
+import os
+import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 from connector import Server
 
