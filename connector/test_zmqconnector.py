@@ -21,7 +21,7 @@ class FunctionalTestsBase(unittest.TestCase):
 
     @staticmethod
     def random_string(length=1024):
-        return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
+        return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(length))
 
 
 class FunctionalTests(FunctionalTestsBase):
