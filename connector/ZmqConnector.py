@@ -11,7 +11,7 @@ class ZeromqConnector:
         self.socket = None
         self.context = zmq.Context()
 
-    def initialize_socket(self):
+    def initialize_socket(self):  # pragma: no cover
         raise NotImplementedError
 
     def _send_zipped_pickle(self, obj, protocol=-1):

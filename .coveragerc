@@ -1,0 +1,5 @@
+[run]
+source = connector
+omit = connector/test_zmqconnector.py
+[report]
+omit = connector/test_zmqconnector.py
