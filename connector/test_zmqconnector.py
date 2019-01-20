@@ -11,11 +11,6 @@ class FunctionalTestsBase(unittest.TestCase):
     num_tests = [1, 0, -1, 0.1, -0.1, 10 ** 6, 0.1 * 10 ** 6]
     long_msg = 'x' * 10 ** 6
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.server.close()
-        time.sleep(1)
-
     def send_message(self, msg, retries, timeout):
         return self.client.send_message(msg, retries=retries, timeout=timeout)
 
@@ -32,7 +27,7 @@ class FunctionalTests(FunctionalTestsBase):
         cls.run_tests = True
 
         def server_worker(server):
-            while True:
+            while cls.run_tests:
                 try:
                     message = server.receive_message()
                     server.send_message({'response': message})
@@ -40,9 +35,13 @@ class FunctionalTests(FunctionalTestsBase):
                     pass
 
         cls.server_thread = threading.Thread(target=server_worker, args=(cls.server,))
-        cls.server_thread.setDaemon(True)
         cls.server_thread.start()
-        time.sleep(1)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.run_tests = False
+        cls.server.close()
+        cls.server_thread.join()
 
 
 class FunctionalTestsBasic(FunctionalTests):
@@ -101,9 +100,13 @@ class FunctionalTestsMoodySrv(FunctionalTestsBase):
                     break
 
         cls.server_thread = threading.Thread(target=server_worker, args=(cls.server,))
-        cls.server_thread.setDaemon(True)
         cls.server_thread.start()
-        time.sleep(1)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.run_tests = False
+        cls.server.close()
+        cls.server_thread.join()
 
 
 class FunctionalTestsFails(FunctionalTestsMoodySrv):
@@ -137,7 +140,6 @@ class FunctionalTestsDyingSrv(FunctionalTestsBase):
             counter = 0
             while cls.run_tests:
                 server = Server(server_port=5556)
-                time.sleep(1)
                 while cls.run_tests:
                     try:
                         message = server.receive_message(blocking=False)
@@ -152,15 +154,14 @@ class FunctionalTestsDyingSrv(FunctionalTestsBase):
                     except server.NoMessage:
                         pass
             server.close()
-
+            
         cls.server_thread = threading.Thread(target=server_worker, args=())
-        cls.server_thread.setDaemon(True)
         cls.server_thread.start()
-        time.sleep(1)
 
     @classmethod
     def tearDownClass(cls):
         cls.run_tests = False
+        cls.server_thread.join()
 
     def test_server_operation_for_tests(self):
         fails = 0
