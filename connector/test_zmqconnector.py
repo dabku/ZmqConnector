@@ -73,7 +73,7 @@ class FunctionalTestsBasic(FunctionalTests):
 
     def test_stream(self):
         msg = 'x'*10**6
-        for i in range(10**3):
+        for i in range(100):
             response = self.send_message(msg, 0, 1000)
             self.assertNotEqual(response, None)
             self.assertEqual(msg, response['response'])
@@ -87,10 +87,12 @@ class FunctionalTestsMoodySrv(FunctionalTestsBase):
         cls.run_tests = True
 
         def server_worker(server):
+            counter = 0
             while True:
                 try:
                     message = server.receive_message()
-                    if random.random() > 0.75:
+                    counter += 1
+                    if counter % 5 == 0:
                         time.sleep(1)
                     server.send_message({'response': message})
 
@@ -106,19 +108,19 @@ class FunctionalTestsMoodySrv(FunctionalTestsBase):
 class FunctionalTestsFails(FunctionalTestsMoodySrv):
     def test_server_operation_for_tests(self):
         fails = 0
-        for i in range(20):
+        for i in range(15):
             try:
                 self.send_message('short', 0, 750)
             except Client.SendTimeout:
                 fails += 1
-        self.assertGreater(fails, 0)
+        self.assertEqual(fails, 3)
 
     def test_retries(self):
-        for i in range(50):
+        for i in range(15):
             msg = self.random_string()
             response = self.send_message(msg, 10, 500)
             self.assertEqual(msg, response['response'])
 
     def test_short_timeout(self):
-        for i in range(50):
+        for i in range(15):
             self.assertRaises(Client.SendTimeout, self.send_message, self.long_msg, 0, 1)
