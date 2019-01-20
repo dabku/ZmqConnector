@@ -13,8 +13,8 @@ class FunctionalTestsBase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        time.sleep(1)
         cls.server.close()
+        time.sleep(1)
 
     def send_message(self, msg, retries, timeout):
         return self.client.send_message(msg, retries=retries, timeout=timeout)
@@ -95,9 +95,10 @@ class FunctionalTestsMoodySrv(FunctionalTestsBase):
                     if counter % 5 == 0:
                         time.sleep(1)
                     server.send_message({'response': message})
-
                 except server.SocketClosed:
                     pass
+                except AttributeError:
+                    break
 
         cls.server_thread = threading.Thread(target=server_worker, args=(cls.server,))
         cls.server_thread.setDaemon(True)
@@ -124,3 +125,54 @@ class FunctionalTestsFails(FunctionalTestsMoodySrv):
     def test_short_timeout(self):
         for i in range(15):
             self.assertRaises(Client.SendTimeout, self.send_message, self.long_msg, 0, 1)
+
+
+class FunctionalTestsDyingSrv(FunctionalTestsBase):
+    @classmethod
+    def setUpClass(cls):
+        cls.client = Client(server_port=5556, address='localhost')
+        cls.run_tests = True
+
+        def server_worker():
+            counter = 0
+            while cls.run_tests:
+                server = Server(server_port=5556)
+                time.sleep(1)
+                while cls.run_tests:
+                    try:
+                        message = server.receive_message(blocking=False)
+                        counter += 1
+                        if counter % 5 == 0:
+                            server.close()
+                        server.send_message({'response': message})
+                    except server.SocketClosed:
+                        pass
+                    except AttributeError:
+                        break
+                    except server.NoMessage:
+                        pass
+            server.close()
+
+        cls.server_thread = threading.Thread(target=server_worker, args=())
+        cls.server_thread.setDaemon(True)
+        cls.server_thread.start()
+        time.sleep(1)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.run_tests = False
+
+    def test_server_operation_for_tests(self):
+        fails = 0
+        for i in range(15):
+            try:
+                self.send_message('short', 0, 750)
+            except Client.SendTimeout:
+                fails += 1
+        self.assertEqual(fails, 3)
+
+    def test_retries(self):
+        for i in range(15):
+            msg = self.random_string()
+            response = self.send_message(msg, 10, 500)
+            self.assertEqual(msg, response['response'])

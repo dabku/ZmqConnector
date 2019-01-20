@@ -50,7 +50,10 @@ class ZeromqConnector:
             if blocking:
                 return self._recv_zipped_pickle()
             else:
-                return self._recv_zipped_pickle(flags=zmq.NOBLOCK)
+                try:
+                    return self._recv_zipped_pickle(flags=zmq.NOBLOCK)
+                except zmq.error.Again:
+                    raise self.NoMessage
         except zmq.error.ContextTerminated:
             raise self.SocketClosed
         except AttributeError as e:
